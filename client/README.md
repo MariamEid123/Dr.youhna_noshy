@@ -1,69 +1,75 @@
-# Y GROUP Accounting Portal
+# Y GROUP — Client & Office Management Platform
 
-Arabic RTL client portal and office dashboard built with React, Vite, Supabase Auth, PostgreSQL, and private Supabase Storage.
+Premium bilingual (Arabic/English) platform for Dr. Yohana Nosshy Attia —
+Y GROUP for Accounting, Auditing and Legal Business.
 
-## Supabase setup
+## Run it on your computer
 
-1. In Supabase Dashboard → SQL Editor, review and run `supabase-supporting-migration.sql` once. It adds the service catalog, required-document tracking, request notes/progress, document-to-request links, and protected database functions; it also seeds services and links existing client profiles to client records where the email match is unique. It does not recreate, alter, or delete existing application tables, change their RLS policies, or make the Storage bucket public. It does revoke direct `INSERT`/`UPDATE`/`DELETE` privileges from `anon` and `authenticated` on selected existing tables; the app performs those writes through the validated functions in this migration. Review those privilege changes before running it.
-2. In Authentication → URL Configuration, set the local Site URL to `http://localhost:5173` and allow `http://localhost:5173/reset` as a redirect URL. Add the production website and reset URL before deployment.
-3. Configure the Supabase Auth email provider and confirmation email template. Public registration always creates a client profile; the browser never chooses a role.
-4. Copy `client/.env.example` to `client/.env.local` and enter the project URL and publishable key from Supabase Project Settings → API. Only the public/publishable key belongs in the frontend.
-5. To bootstrap the first office administrator, register the administrator account through the website and confirm its email. Then, in the SQL Editor, promote that account using its exact email:
+1. Install Node.js (LTS) from https://nodejs.org
+2. Open a terminal inside this folder.
+3. Run `npm install` (once, and after pulling new dependencies).
+4. Run `npm run dev` and open the address it prints (usually http://localhost:5173).
+5. Production build: `npm run build` (output in `dist/`).
 
-   ```sql
-   update public.profiles
-   set role = 'super_admin'
-   where email = 'admin@example.com';
+## Database & accounts (required for login and workspaces)
 
-   delete from public.clients
-   where user_id = (
-     select id from public.profiles
-     where email = 'admin@example.com' and role = 'super_admin'
-   );
-   ```
+Connect Supabase by following **SUPABASE_SETUP.md** step by step. Apply
+`supabase/migrations/0001_auth_roles.sql` first, then
+`supabase/migrations/0002_client_operations.sql`. The second migration adds
+appointments, documents, requests, messages, notifications, settings, private
+storage buckets, realtime configuration and their RLS policies.
 
-   Run this only for the intended administrator account. Do not expose or place a service-role key in the browser.
-6. In `server`, copy `.env.example` to `.env` and configure `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `CLIENT_URL`. The service-role key is used only on the server for staff provisioning and secure document finalization; never prefix it with `VITE_` or expose it to the browser.
+For Vercel, use the repository's `client/` directory as the Root Directory,
+Vite as the Framework Preset, `npm install` as the Install Command,
+`npm run build` as the Build Command, and `dist` as the Output Directory.
+The deployment uses Node.js 24 and the SPA rewrite in `vercel.json`.
 
-## Local development
+## Project status
 
-Requirements: Node.js 20.19+ (or 22.12+).
+- Public bilingual website, legal pages, Supabase authentication, profiles, roles,
+  client and admin workspaces.
+- Client document exchange with private storage and signed downloads.
+- Appointment requests, administrator review, availability configuration,
+  database-side time validation and overlap protection.
+- Service requests, assigned staff, private conversations, file attachments,
+  realtime messages, in-app notifications and office contact settings.
+- Public contact-form messages are stored for office-admin review, with a
+  database-enforced per-email submission limit. No automatic email is sent.
+- Database RLS limits client records to their owner; staff access is limited to
+  assigned records; office admins and Super Admins can manage office records.
 
-1. In one terminal, start the restricted staff-provisioning API:
+The database features are ready to use after applying both migrations below.
+Automatic email delivery, production deployment, final legal text and
+office-specific contact/availability details still require owner setup.
 
-   ```powershell
-   Set-Location ..\server
-   npm ci
-   npm run dev
-   ```
+## Security notes
 
-2. In a second terminal, start the website:
+- Only the Supabase URL and public **Publishable** (or legacy **anon**) key are
+  used in the frontend (`.env`). Neither key is a service-role secret.
+- The service/secret key is never used in this project — keep it in Supabase only.
+- Public registration always creates a **client**; roles can only be changed by
+  the Super Admin (enforced by database triggers, not just the UI).
+- Role changes are recorded in `activity_logs`.
+- Appointment/document/service-request status and assignment changes are
+  recorded in `activity_logs`.
+- Public contact submissions are limited to five per email per hour. This does
+  not replace a CAPTCHA or edge-level abuse protection for a public deployment.
+- `.env` is git-ignored; `.env.example` contains placeholders only.
 
-   ```powershell
-   Set-Location ..\client
-   npm ci
-   npm run dev
-   ```
+## Important setup after migrations
 
-3. Open <http://localhost:5173>.
+1. In Admin → Office Settings, enter the office's actual timezone, contact
+   information and weekly working hours. No phone, address or hours are assumed.
+2. In Admin → Users & Permissions, promote the owner's verified account to
+   Super Admin only after following the secure bootstrap step in
+   `SUPABASE_SETUP.md`.
+3. Configure Supabase Auth email templates/SMTP before relying on verification
+   and password-recovery emails outside development.
+4. Review the legal pages with the office's legal adviser before publishing.
 
-For production, route the website's `/api/*` requests to the Express server; the Vite proxy above applies only during local development. Keep the server's service-role key in its server-side environment only.
+## Editing content
 
-## Data and authorization
-
-- Supabase Auth is the only login/session system. Roles are read from `public.profiles`; registration does not accept a role.
-- Client data access is scoped through the existing RLS policies and `clients.user_id`. Private documents use the existing `client-documents` bucket and the path `{client_id}/{random-id}-{file-name}`.
-- The browser creates short-lived signed download links only after the RLS-protected document metadata query succeeds.
-- The Express server verifies the caller's Supabase access token and profile using a server-only key. It provisions accountant/receptionist Auth users and verifies uploaded files before inserting document metadata or linking required documents.
-- Document uploads use the existing private `client-documents` bucket. The browser uploads to the client-specific path, then the server verifies the authenticated user's role, client/request ownership, file contents, and size before accepting the document. The bucket stays private; downloads use signed URLs after the RLS-protected metadata query.
-- Request stages and notes are stored in the added `request_notes` table. Service IDs are stored in the existing `requests.category` text field; request titles retain the service name. Request codes are stable short prefixes of the UUID.
-- Appointments keep the service name in the existing `appointments.title` field. Database functions authorize booking, cancellation, rescheduling, and completion and serialize slot checks.
-- Existing MongoDB records and `private_uploads` files are not copied by this code migration. Back them up and migrate them separately before deleting any MongoDB database or uploaded files.
-- The SQL migration has not been applied to a Supabase project as part of this code change. Live Auth, RLS, Storage, and role-specific behavior still need verification after applying the reviewed SQL and configuring the local environment.
-
-## Build
-
-```powershell
-Set-Location .
-npm run build
-```
+- Office contact details, service descriptions and working hours: Admin → Office Settings.
+- Website UI text (AR/EN): `src/i18n/translations.js`
+- Service icon metadata and local fallbacks: `src/config/site.js`
+- Database setup SQL: `supabase/migrations/`

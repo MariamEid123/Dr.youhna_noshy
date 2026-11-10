@@ -1,7 +1,8 @@
 node_modules/
 dist/
+build/
+.vercel/
 .env
 .env.*
 !.env.example
-.env.local
-npm-debug.log*
+!.env.*.example
