@@ -13,11 +13,12 @@ Y GROUP for Accounting, Auditing and Legal Business.
 
 ## Database & accounts (required for login and workspaces)
 
-Connect Supabase by following **SUPABASE_SETUP.md** step by step. Apply
-`supabase/migrations/0001_auth_roles.sql` first, then
-`supabase/migrations/0002_client_operations.sql`. The second migration adds
-appointments, documents, requests, messages, notifications, settings, private
-storage buckets, realtime configuration and their RLS policies.
+Connect Supabase by following **SUPABASE_SETUP.md**. For a new, empty project,
+apply `supabase/migrations/0001_auth_roles.sql` followed by
+`supabase/migrations/0002_client_operations.sql`. Do not re-run those migrations
+on a populated production database without reviewing their effects. The
+additive `0003_private_storage.sql` provisions only missing private buckets and
+missing storage policies.
 
 For Vercel, use the repository's `client/` directory as the Root Directory,
 Vite as the Framework Preset, `npm install` as the Install Command,
@@ -38,9 +39,14 @@ The deployment uses Node.js 24 and the SPA rewrite in `vercel.json`.
 - Database RLS limits client records to their owner; staff access is limited to
   assigned records; office admins and Super Admins can manage office records.
 
-The database features are ready to use after applying both migrations below.
-Automatic email delivery, production deployment, final legal text and
-office-specific contact/availability details still require owner setup.
+The production frontend is available at
+[https://dr-youhna-noshy.vercel.app](https://dr-youhna-noshy.vercel.app).
+The live Supabase project has the required tables, but its private storage
+buckets are currently missing; document uploads and message attachments remain
+unavailable until the owner applies `0003_private_storage.sql` in the matching
+Supabase project's SQL Editor. Authentication flows, email delivery, final
+legal text and office-specific contact/availability details still require
+owner setup or authorized test accounts.
 
 ## Security notes
 

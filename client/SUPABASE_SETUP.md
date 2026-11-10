@@ -41,12 +41,47 @@ Ask your developer if anything is unclear — do not guess.
    `supabase/migrations/0002_client_operations.sql`, paste it and click **RUN**.
    This adds the client workspaces, database access policies, private file
    buckets, realtime message tables and public contact-message inbox. It does
-   not delete existing tables.
+   not delete existing tables, but it does synchronize existing profile email
+   values and recreate several policies.
 6. If either query reports an error, stop and share the error text with your
    developer. Do not repeatedly run a partially completed SQL query.
 
 The first migration creates accounts and roles; the second adds operational
-features. Run them in order only after confirming the first one succeeded.
+features. Run them in order only for a new project after confirming the first
+one succeeded.
+
+### If this is an existing production project
+
+Do not re-run migrations `0001` or `0002` against a populated production
+database: `0002` can update existing profile email values and recreate
+policies. The deployed Y GROUP app currently finds its tables, but the
+`client-documents` and `message-attachments` buckets are missing. After
+confirming this is the intended project, open its **SQL Editor**, run only
+`supabase/migrations/0003_private_storage.sql`, and verify that both buckets
+are private. This migration adds only missing buckets and missing policies; it
+does not replace existing buckets or policies. If it reports that a bucket is
+public, stop and review the existing configuration instead of proceeding.
+
+To verify the result, run:
+
+```sql
+select id, public, file_size_limit
+from storage.buckets
+where id in ('client-documents', 'message-attachments');
+
+select policyname, cmd
+from pg_policies
+where schemaname = 'storage'
+  and tablename = 'objects'
+  and policyname in (
+    'client_documents_read', 'client_documents_insert', 'client_documents_delete',
+    'message_files_read', 'message_files_insert', 'message_files_delete'
+  )
+order by policyname;
+```
+
+Both bucket rows should show `public = false`, and the six storage policies
+should be present. Do not share screenshots containing account or client data.
 
 ## Step 4 — Turn on email verification
 
